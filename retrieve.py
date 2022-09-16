@@ -2,7 +2,7 @@ from datetime import datetime
 
 import requests
 import json
-import matplotlib.pyplot as plt
+
 
 # ================================ Motion retrieval ==========================================
 def om2m_motion_retrieval():
