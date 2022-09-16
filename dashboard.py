@@ -1,46 +1,18 @@
-from logging import log
-#import tkinter as tk
-from requests import status_codes
 import streamlit as st
 from onem2m import *
 from retrieve import *
-# from streamlit_autorefresh import st_autorefresh
-import pymongo
 from pymongo import MongoClient
-import webbrowser
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-#from tkinter import *
-import matplotlib.pyplot as plt
-from sklearn import datasets
-from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import statistics
 import time
 from functions import *
-from PIL import Image
-import random
-#from skimage import io
 import urllib.request as urllib2
 import json
-import time
-from PIL import Image
 import streamlit.components.v1 as components
 import bcrypt
 import plotly.express as px
-# from om2m_resources.resource import cse, ae, cnt, cin, sub, sgn, smd
-# from om2m_client import OM2MClient
-
-# OM2M_URL = "http://localhost:8080/~"
-# CSE_ID = "/in-cse/"
-# CSE_NAME = "in-name"
-# LOGIN="admin"
-# PSWD="admin"
-# OM2M_BASE = OM2M_URL+CSE_ID
-
 
 
 READ_API_KEY='G32R85RJUZL7CWY4'   
