@@ -428,11 +428,10 @@ def main():
             username = st.sidebar.text_input("Username")
             password = st.sidebar.text_input("Password", type='password')
             if st.sidebar.button("Login"):
-                loginvalue = login(username, password)
-                if loginvalue == 1:
-                    st.session_state.username = username
-                    st.header("Fields to be displayed here")
-                    st.markdown(
+                
+                st.session_state.username = username
+                st.header("Fields to be displayed here")
+                st.markdown(
                 """
                  - Temperature
                  - Heat map
@@ -440,9 +439,8 @@ def main():
                  - etc..
                 """
                     )
-                    st.experimental_rerun()
-                elif loginvalue == 0:
-                    st.warning("Invalid credentials")
+                st.experimental_rerun()
+                
 
         elif choice == "Signup":
             st.sidebar.subheader("Register here")
@@ -454,17 +452,15 @@ def main():
                 if(new_password != confirm_password):
                     st.warning("Password and confirm password doesn't match")
                 else:
-                    final = sign_up(new_user, new_password)
-                    if final == 1:
-                        with st.spinner(text='In progress'):
-                            time.sleep(3)
-                            st.success("Account created successfully")
-                            st.balloons()
-                            st.title('Welcome ' + new_user)
-                            st.info("Go to Login Menu to Login")
+                    
+                    with st.spinner(text='In progress'):
+                        time.sleep(3)
+                        st.success("Account created successfully")
+                        st.balloons()
+                        st.title('Welcome ' + new_user)
+                        st.info("Go to Login Menu to Login")
 
-                    elif final == 0:
-                        st.warning("User already exists")
+                    
     else:
         logout = st.button("Logout")
         if logout:
