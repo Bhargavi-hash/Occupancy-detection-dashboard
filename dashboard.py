@@ -1,45 +1,161 @@
 import streamlit as st
 from onem2m import *
-from retrieve import *
 from pymongo import MongoClient
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-import statistics
 import time
-from functions import *
 import urllib.request as urllib2
 import json
 import streamlit.components.v1 as components
 import bcrypt
 import plotly.express as px
-
+# from retrieve import *
+# from predict import *
+import requests
+import json
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pickle
+from joblib import Parallel, delayed
+import joblib
 
 READ_API_KEY='G32R85RJUZL7CWY4'   
 CHANNEL_ID= '1848200'
 
 st.set_page_config(layout="wide")
 
-def Thingspeak_HeatMap():
-    TS = urllib2.urlopen("http://api.thingspeak.com/channels/%s/feeds/last.json?api_key=%s" \
-                       % (CHANNEL_ID,READ_API_KEY))
+# ================================ Motion retrieval ==========================================
+def om2m_motion_retrieval():
+    # ae1 = "OD-TEST"
+    # cnt1 = "Node-1"
 
-    response = TS.read()
-    data = json.loads(response)
+    # uri_cse = "http://192.168.171.221:5089/~/in-cse/in-name"
+    # uri_ae1 = uri_cse + "/" + ae1
+    # uri_cnt1 = uri_ae1 + "/" + cnt1
 
-    RecentMapTime = data['created_at']
-    st.write(RecentMapTime)
+    uri_req1 = "https://esw-onem2m.iiit.ac.in/~/in-cse/in-name/Team-28/Node-1/Data/la"
+
+    headers = {
+        'X-M2M-Origin': 'zZ!#4s:m&Y#HL',
+        'Content-type': 'application/json'
+    }
+
+    response1 = requests.get(uri_req1, headers=headers)
+    res1 = json.loads(response1.text)
+    return res1
+
+##=================== predict.py ============================
+
+
+def doit(arr, count, visited, i, j):
+        if(i < 0 or i > 7 or j < 0 or j > 7):return count 
+        elif(visited[i][j] != 0):return count 
+        elif(arr[i][j] == 0):return count 
+
+        if(arr[i][j] == 1):
+            visited[i][j] = 1
+            arr[i][j] = 0
+            count = count + 1
+            count = doit(arr, count, visited, i+1, j)
+            count = doit(arr, count, visited, i-1, j)
+            count = doit(arr, count, visited, i, j+1)
+            count = doit(arr, count, visited, i, j-1)
+
+            return count
+
+def find_blob_sizes(arr):
+        visited = np.zeros((8,8))
+        count = 0
+        ret = []
+        for i in range(8):
+            for j in range(8):
+                if visited[i][j] == 1:
+                    continue
+                count = doit(arr, count, visited, i, j)
+                if count > 0 :
+                    #print(count)
+                    ret.append(count)
+                    count = 0
+
+        return ret 
+
+def predict_occupancy(pir, matrix):
+    pir_status = pir # or 0 which we get from thingspeak
+    pixel_matrix_list = matrix
+    #print(pixel_matrix_list)
+    cells = np.array(pixel_matrix_list) # this is 8x8 numpy array
+    #print(cells)
+
+    # ## heat map  plot
+    # heat_map = cells
+    # ax = sns.heatmap(heat_map, linewidth=0.5, cmap = 'YlOrBr')
+    # plt.show()
+
+    avg_temp=np.average(cells)
+    standard_deviation = np.std(cells) # calculate sd of the pixel matrix
+    count_actv_cells = 0
+    threshhold_temp = avg_temp + 0.75 # 1 #2 or 1.5 whatever
+    for a in range(8):
+        for r in range(8) :
+            if( cells[a][r] >= threshhold_temp): 
+                cells[a][r] = 1
+                count_actv_cells+=1
+            else: cells[a][r] = 0
+
+    # # pixelated image plot
+    # pixelated_image = cells
+    # plt.imshow( pixelated_image , cmap = 'hot' , interpolation = 'nearest' ) 
+    # plt.show()
+
+    ans = find_blob_sizes(cells)   #This modifies cells and all values will be zero.
+    ans.sort(reverse = True)
+
+    # attributes to be used as independent variables
+    if len(ans)>0:
+        first = ans[0] # 1st biggest blob size
+    else: first = 0
+    if len(ans)>1:
+        second = ans[1] # 2nd biggest blob size
+    else :
+        second =0
+    if len(ans)>2:
+        third = ans[2] # 3rd biggest blob size
+    else: third = 0
+
+    mydataset = {
+      'pir_state' : [pir_status],
+      'first_blob' : [first],
+      'second_blob' : [second],
+      'third_blob' : [third],
+      'mean' : [avg_temp],
+      'sd' : [standard_deviation], # standard deviation
+      'no_of_active_cells' : [count_actv_cells]
+    }
+
+    input = pd.DataFrame(mydataset)
+
+    # print(input) # prints input data frame of single tuple
     
-    row1_2 = data['field3']
+
+    # Load the model from the file
+    esw_model = joblib.load('p_model.pkl') 
+    
+    # Use the loaded model to make predictions
+    output = esw_model.predict(input) # return numpy array
+    # print("predicted no.of people = ",output[0])
+    return output[0]
+##=================== predict.py ==============================
+def return_matrix ( row1_2,  row3_4,row5_6, row7_8):
+    
     fragment1 = row1_2.split(',')
     
-    row3_4 = data['field4']
+    
     fragment2 = row3_4.split(',')
 
-    row5_6 = data['field5']
+    
     fragment3 = row5_6.split(',')
 
-    row7_8 = data['field6']
+    
     fragment4 = row7_8.split(',')
 
     r1c1 = float(fragment1[0])
@@ -123,11 +239,48 @@ def Thingspeak_HeatMap():
            [r7c1, r7c2, r7c3, r7c4, r7c5, r7c6, r7c7, r7c8],
            [r8c1, r8c2, r8c3, r8c4, r8c5, r8c6, r8c7, r8c8]]
 
-    heatmap = px.imshow(map, text_auto=True, aspect="auto")
+    return map
+
+
+
+
+def Thingspeak_HeatMap(matrix):
+  
+
+    map = matrix
+    heatmap = px.imshow(map, text_auto= False, aspect="auto")
     # heatmap = px.imshow(map, cmap='hot', interpolation = 'nearest')
     # heatmap.show()
     st.write(heatmap)
+    
+    cells = np.array(map) # this is 8x8 numpy array
+    #print(cells)
 
+    # heat map  plot
+    # heat_map = cells
+    # ax = sns.heatmap(cells, linewidth=0.5, cmap = 'YlOrBr')
+    # st.write(ax)
+    
+
+    avg_temp=np.average(cells)
+    # standard_deviation = np.std(cells) # calculate sd of the pixel matrix
+    count_actv_cells = 0
+    threshhold_temp = avg_temp + 0.75 # 1 #2 or 1.5 whatever
+    for a in range(8):
+        for r in range(8) :
+            if( cells[a][r] >= threshhold_temp): 
+                cells[a][r] = 1
+                count_actv_cells+=1
+            else: cells[a][r] = 0
+
+    # pixelated image plot
+    st.header("Pixelated Image")
+    pixelated_image = cells
+    NewMap = px.imshow( pixelated_image , text_auto=False, aspect="auto" ) 
+    st.write(NewMap)
+    # fig = plt.imshow( pixelated_image , cmap = 'hot' , interpolation = 'nearest' ) 
+    # st.pyplot(fig)
+    # plt.show()
     # st.write(fragment1)
     
     # st.write(row3_4)
@@ -137,120 +290,8 @@ def Thingspeak_HeatMap():
 connection_url='mongodb+srv://bhargavi:esw2022@eswpro.pkqjhmv.mongodb.net/?retryWrites=true&w=majority'
 DB_NAME = 'userDetails'
 
-ans = []
-
-a = []
-
-output = []
-avg = []
-sd = []
-nfa = []
 
 
-vis = []
-cnt = 1
-
-
-def dfs(i, j, arr):
-    global vis
-    global cnt
-
-    if i < 0 or j < 0 or i >= 8 or j >= 8 or vis[i][j] != 0 or arr[i][j] == 0:
-        return
-
-    vis[i][j] = cnt
-    dfs(i+1, j, arr)
-
-    dfs(i-1, j, arr)
-    dfs(i, j+1, arr)
-    dfs(i, j-1, arr)
-
-
-def getblobs(arr):
-    global vis
-    global cnt
-    cnt = 1
-    actcnt = 0
-    for i in range(8):
-        ta = []
-        for j in range(8):
-            if arr[i][j] > 0:
-                arr[i][j] = 255
-                actcnt += 1
-            else:
-                arr[i][j] = 0
-            ta.append(0)
-        vis.append(ta)
-    nfa.append(actcnt)
-
-    for i in range(8):
-        for j in range(8):
-            if arr[i][j] == 255 and vis[i][j] == 0:
-                dfs(i, j, arr)
-                cnt += 1
-    y = 0
-    for i in range(8):
-        for j in range(8):
-            if vis[i][j] > y:
-                y += 1
-    c = []
-
-    for i in range(y):
-        c.append(0)
-
-    for i in range(8):
-        for j in range(8):
-            if vis[i][j] > 0:
-                c[vis[i][j]-1] += 1
-    c.sort(reverse=True)
-    d = [0, 0, 0]
-    if 0 < len(c):
-        d[0] = c[0]
-    if 1 < len(c):
-        d[1] = c[1]
-    if 2 < len(c):
-        d[2] = c[2]
-
-    return np.array(d)
-
-def getfeature(arr):
-    print(arr)
-    avge = 0
-    brr = []
-    act = 0
-    ans = [[27.25, 27.43, 27.26, 27.46, 27.52, 27.55, 27.98, 28.06], [27.44, 27.39, 27.16, 27.37, 27.51, 27.6, 27.66, 27.57], [27.14, 27.22, 26.88, 27.5, 27.71, 27.76, 27.98, 28.03], [27.3, 27.0, 26.95, 27.57, 27.84, 27.41, 27.73, 27.96], [
-        27.53, 27.55, 27.48, 27.56, 27.66, 27.38, 27.37, 27.86], [27.18, 27.7, 27.45, 27.27, 27.2, 27.29, 27.37, 27.8], [27.35, 27.17, 27.0, 27.2, 27.2, 27.24, 27.26, 27.53], [26.77, 27.27, 26.99, 27.26, 27.29, 27.59, 27.82, 27.72]]
-    print(ans)
-    for i in range(8):
-        for j in range(8):
-
-            brr.append(arr[i][j])
-            avge += arr[i][j]
-
-            if arr[i][j] > (ans[i][j]):
-                act += 1
-            arr[i][j] -= (ans[i][j])
-    print(arr)
-    blob = getblobs(arr)
-    sde = statistics.pstdev(brr)
-    temp = []
-    temp = [avge/64, sde, act, blob[0], blob[1], blob[2]]
-    return np.array(temp)
-
-def algo(k):
-    X = np.load("./fv.npy")
-    Y = np.load("./output.npy")
-
-    target = [0, 1, 2]
-    feature_names = ["average", "standard_deviation",
-                     "active_pixels", "blob1", "blob2", "blob3"]
-
-    X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.40)
-    clf = RandomForestClassifier(n_estimators=50)
-    clf.fit(X_train, y_train)
-    print(X_test.shape, X_train.shape, y_train.shape, y_test.shape)
-    y_pred = clf.predict([k])
-    return y_pred[0]
 
 def dashboard():
     st.success("Logged in as {}". format(st.session_state.username))
@@ -261,34 +302,60 @@ def dashboard():
     data = om2m_motion_retrieval()
     cins1 = data["m2m:cin"]["con"]
     om2mtime = cins1[1]+cins1[2]+cins1[3]+cins1[4]+cins1[5]+cins1[6]+cins1[7]+cins1[8]
-    occupancy = cins1[10]
-    if occupancy == "0":
+    pir = cins1[10]
+    TS1 = urllib2.urlopen("http://api.thingspeak.com/channels/%s/feeds/last.json?api_key=%s" \
+                       % (CHANNEL_ID,READ_API_KEY))
+
+    response1 = TS1.read()
+    data1 = json.loads(response1)
+
+    latestTime = data1['created_at']
+    # Extract date
+    splitT = latestTime.index("T");
+    dayStamp = latestTime[0:splitT]
+    #  Serial.print("DATE: ");
+    #  Serial.println(dayStamp);
+    # Extract time
+    # timeStamp = latestTime.substring(splitT+1, latestTime.length()-1)
+    timeStamp = latestTime[splitT+1:len(latestTime)-1]
+    # Serial.print("HOUR: ");
+    # Serial.println(timeStamp);
+    col1.metric("Last Updated", dayStamp+", "+timeStamp)
+    # col1.metric("Last Updated", latestTime)
+    pir_status = data1['field1']
+    matrix = return_matrix(data1['field3'], data1['field4'],data1['field5'], data1['field6'])
+    occupancy = predict_occupancy(pir_status, matrix)
+    # occupancy = 1
+    col1.metric("Latest Number of people in the room", occupancy)
+
+    if occupancy == 0:
         col2.metric("Occupancy", "Room is empty")
     else:
         col2.metric("Occupancy", "Room is occupied")
 
-    col1.metric("Last Updated", om2mtime)
-    col1.metric("Latest Number of people in the room", 2)
-
-    col2.metric("Average Occupancy", "5")
     
-    col3.metric("Accuracy of model", "86%")
+
+    col2.metric("Average Occupancy", "3")
+    
+    col3.metric("Accuracy of model", "~85%")
     col3.metric("Time interval when the room is used the most", "6:00pm to 8:00pm")
-    st.header("PIR Data")
+    
+    # # st.session_state.task == "Temperature":
+    # st.header("Temperature")
+    
+    # st.markdown(
+    #     """
+    #     Temperature recorded using Grid eye
+    #     """
+    # )
+    # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
+    st.header("Heat Map")
+    Thingspeak_HeatMap(matrix)
+    # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
+
+    st.header("PIR Status")
     components.iframe("https://thingspeak.com/channels/1848200/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
     
-    # st.session_state.task == "Temperature":
-    st.header("Temperature")
-    
-    st.markdown(
-        """
-        Temperature recorded using Grid eye
-        """
-    )
-    components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
-    st.header("Heat Map")
-    Thingspeak_HeatMap()
-
 
 
 def login(username, password):
@@ -367,7 +434,6 @@ def main():
                     st.header("Fields to be displayed here")
                     st.markdown(
                 """
-
                  - Temperature
                  - Heat map
                  - Occupancy statistics
@@ -413,4 +479,3 @@ if __name__ == "__main__":
 
     DEBUG = os.environ.get("DEBUG", "false").lower() not in ["false", "no", "0"]
     main()
-    
