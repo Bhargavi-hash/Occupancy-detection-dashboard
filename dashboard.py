@@ -1,7 +1,7 @@
 import streamlit as st
-from onem2m import *
+
 from pymongo import MongoClient
-import time
+
 import urllib.request as urllib2
 import json
 import streamlit.components.v1 as components
