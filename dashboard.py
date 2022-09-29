@@ -254,7 +254,7 @@ def Thingspeak_HeatMap():
            [0, 0, 0, 0, 0, 0, 0, 0],
            [0, 0, 0, 0, 0, 0, 0, 0],
            [0, 0, 0, 0, 0, 0, 0, 0]]
-    map = matrix
+#     map = matrix
     heatmap = px.imshow(map, text_auto= False, aspect="auto")
     # heatmap = px.imshow(map, cmap='hot', interpolation = 'nearest')
     # heatmap.show()
