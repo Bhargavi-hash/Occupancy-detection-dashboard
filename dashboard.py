@@ -244,9 +244,16 @@ def return_matrix ( row1_2,  row3_4,row5_6, row7_8):
 
 
 
-def Thingspeak_HeatMap(matrix):
+def Thingspeak_HeatMap():
   
-
+    map = [[0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0, 0]]
     map = matrix
     heatmap = px.imshow(map, text_auto= False, aspect="auto")
     # heatmap = px.imshow(map, cmap='hot', interpolation = 'nearest')
@@ -320,13 +327,13 @@ def dashboard():
     timeStamp = latestTime[splitT+1:len(latestTime)-1]
     # Serial.print("HOUR: ");
     # Serial.println(timeStamp);
-    col1.metric("Last Updated", dayStamp+", "+timeStamp)
+    col1.metric("Last Updated", "2022-09-24, 11:34:50")
     # col1.metric("Last Updated", latestTime)
-    pir_status = data1['field1']
-    matrix = return_matrix(data1['field3'], data1['field4'],data1['field5'], data1['field6'])
-    occupancy = predict_occupancy(pir_status, matrix)
-    # occupancy = 1
-    col1.metric("Latest Number of people in the room", occupancy)
+#     pir_status = data1['field1']
+#     matrix = return_matrix(data1['field3'], data1['field4'],data1['field5'], data1['field6'])
+#     occupancy = predict_occupancy(pir_status, matrix)
+    occupancy = 0
+    col1.metric("Latest Number of people in the room", 0)
 
     if occupancy == 0:
         col2.metric("Occupancy", "Room is empty")
@@ -350,7 +357,7 @@ def dashboard():
     # )
     # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
     st.header("Heat Map")
-    Thingspeak_HeatMap(matrix)
+    Thingspeak_HeatMap()
     # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
 
     st.header("PIR Status")
