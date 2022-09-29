@@ -358,7 +358,8 @@ def dashboard():
     # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
     st.header("Heat Map")
     Thingspeak_HeatMap()
-    # components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
+    st.header("Temperature")
+    components.iframe("https://thingspeak.com/channels/1848200/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
 
     st.header("PIR Status")
     components.iframe("https://thingspeak.com/channels/1848200/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&xaxis=Timestamp",  width=450, height=250, scrolling=True)
